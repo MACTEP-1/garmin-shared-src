@@ -21,7 +21,9 @@ using Toybox.Lang;
 // project copy anymore. Relies on all three projects' strings.xml
 // defining the same string resource IDs this file references
 // (SettingClockStyle, ClockStyleDigital/Analog, FieldSteps through
-// FieldWorldClock, etc.) - if a future setting adds a new string here,
+// FieldWorldClock, plus FieldMoveBar/FieldSunrise/FieldSunset added in the
+// "second hand / move bar / sunrise-sunset / step ring" round, etc.) - if a
+// future setting adds a new string here,
 // it needs adding to all three projects' strings.xml, or that project's
 // build will fail with an undefined Rez.Strings reference (which is a
 // good thing: a build error beats the three projects silently drifting
@@ -51,12 +53,29 @@ using Toybox.Lang;
 // phone-based settings.xml, so whichever one you use most recently wins;
 // they can't get out of sync with each other.
 
+// Defaults for the long-press "alternate" field set (Field1Alt/2Alt/3Alt) -
+// deliberately different from the primary set's defaults (steps/heart
+// rate/calories) so a long-press is immediately noticeable/useful without
+// the user having to configure anything first: floors climbed, stress,
+// move bar. Fully re-configurable via "Long-press fields" below either
+// way. Numeric values match each View.mc's FIELD_* constants exactly
+// (FIELD_FLOORS=4, FIELD_STRESS=7, FIELD_MOVE_BAR=10).
+const ALT_FIELD1_DEFAULT = 4;
+const ALT_FIELD2_DEFAULT = 7;
+const ALT_FIELD3_DEFAULT = 10;
+
 class SettingsMenu extends WatchUi.Menu2 {
     function initialize() {
         Menu2.initialize({:title => "Customize"});
         addItem(new WatchUi.MenuItem("Left circle", currentFieldLabel("Field1", 0), :field1, {}));
         addItem(new WatchUi.MenuItem("Middle circle", currentFieldLabel("Field2", 1), :field2, {}));
         addItem(new WatchUi.MenuItem("Right circle", currentFieldLabel("Field3", 2), :field3, {}));
+        // Long-press-to-swap-fields, added this round - see
+        // WatchFaceInputDelegate.mc for the onPress()/API-level research.
+        // This submenu configures WHICH fields the long-press swaps to;
+        // whether the swap happens at all is that file's job, not this
+        // menu's.
+        addItem(new WatchUi.MenuItem("Long-press fields", null, :altFields, {}));
         addItem(new WatchUi.MenuItem("World clock offset", currentWorldClockLabel(), :worldClock, {}));
         addItem(new WatchUi.MenuItem(Rez.Strings.SettingClockStyle, currentClockStyleLabel(), :clockStyle, {}));
     }
@@ -75,6 +94,8 @@ class SettingsDelegate extends WatchUi.Menu2InputDelegate {
             pushFieldPicker(item, "Field2");
         } else if (id.equals(:field3)) {
             pushFieldPicker(item, "Field3");
+        } else if (id.equals(:altFields)) {
+            pushAltFieldsMenu(item);
         } else if (id.equals(:worldClock)) {
             pushWorldClockPicker(item);
         } else if (id.equals(:clockStyle)) {
@@ -82,22 +103,15 @@ class SettingsDelegate extends WatchUi.Menu2InputDelegate {
         }
     }
 
-    // Submenu listing all 10 selectable fields - same FIELD_* ids as
-    // View.mc's constants and settings.xml's Field1/2/3 list
-    // values. propKey is which of Field1/Field2/Field3 this circle is.
-    function pushFieldPicker(parentItem as WatchUi.MenuItem, propKey as Lang.String) as Void {
-        var menu = new WatchUi.Menu2({:title => parentItem.getLabel()});
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldSteps, null, 0, {}));
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldHeartRate, null, 1, {}));
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldCalories, null, 2, {}));
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldDistance, null, 3, {}));
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldFloors, null, 4, {}));
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldActiveMinutes, null, 5, {}));
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldBattery, null, 6, {}));
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldStress, null, 7, {}));
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldTemperature, null, 8, {}));
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldWorldClock, null, 9, {}));
-        WatchUi.pushView(menu, new FieldPickerDelegate(parentItem, propKey), WatchUi.SLIDE_IMMEDIATE);
+    // Submenu for configuring the long-press "alternate" field set -
+    // three more Left/Middle/Right pickers, same pushFieldPicker() as the
+    // primary set below, just pointed at the *Alt property keys instead.
+    function pushAltFieldsMenu(parentItem as WatchUi.MenuItem) as Void {
+        var menu = new WatchUi.Menu2({:title => "Long-press fields"});
+        menu.addItem(new WatchUi.MenuItem("Left circle", currentFieldLabel("Field1Alt", ALT_FIELD1_DEFAULT), :field1, {}));
+        menu.addItem(new WatchUi.MenuItem("Middle circle", currentFieldLabel("Field2Alt", ALT_FIELD2_DEFAULT), :field2, {}));
+        menu.addItem(new WatchUi.MenuItem("Right circle", currentFieldLabel("Field3Alt", ALT_FIELD3_DEFAULT), :field3, {}));
+        WatchUi.pushView(menu, new AltFieldsDelegate(), WatchUi.SLIDE_IMMEDIATE);
     }
 
     // Whole-hour UTC offsets only, same range as settings.xml's
@@ -125,6 +139,50 @@ class SettingsDelegate extends WatchUi.Menu2InputDelegate {
         menu.addItem(new WatchUi.MenuItem(Rez.Strings.ClockStyleDigital, null, 0, {}));
         menu.addItem(new WatchUi.MenuItem(Rez.Strings.ClockStyleAnalog, null, 1, {}));
         WatchUi.pushView(menu, new ClockStylePickerDelegate(parentItem), WatchUi.SLIDE_IMMEDIATE);
+    }
+}
+
+// Submenu listing all 13 selectable fields - same FIELD_* ids as View.mc's
+// constants and settings.xml's Field1/2/3 (and now Field1Alt/2Alt/3Alt)
+// list values. propKey is which property this circle writes to - moved to
+// a free function (was a SettingsDelegate method) so both SettingsDelegate
+// (primary fields) and AltFieldsDelegate (long-press fields) below can
+// call it without duplicating this whole list a third time.
+function pushFieldPicker(parentItem as WatchUi.MenuItem, propKey as Lang.String) as Void {
+    var menu = new WatchUi.Menu2({:title => parentItem.getLabel()});
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldSteps, null, 0, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldHeartRate, null, 1, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldCalories, null, 2, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldDistance, null, 3, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldFloors, null, 4, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldActiveMinutes, null, 5, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldBattery, null, 6, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldStress, null, 7, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldTemperature, null, 8, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldWorldClock, null, 9, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldMoveBar, null, 10, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldSunrise, null, 11, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldSunset, null, 12, {}));
+    WatchUi.pushView(menu, new FieldPickerDelegate(parentItem, propKey), WatchUi.SLIDE_IMMEDIATE);
+}
+
+// Delegate for the "Long-press fields" submenu above - same three-circle
+// shape as SettingsDelegate's top-level field items, just routed to the
+// *Alt property keys via the same pushFieldPicker() function.
+class AltFieldsDelegate extends WatchUi.Menu2InputDelegate {
+    function initialize() {
+        Menu2InputDelegate.initialize();
+    }
+
+    function onSelect(item as WatchUi.MenuItem) as Void {
+        var id = item.getId();
+        if (id.equals(:field1)) {
+            pushFieldPicker(item, "Field1Alt");
+        } else if (id.equals(:field2)) {
+            pushFieldPicker(item, "Field2Alt");
+        } else if (id.equals(:field3)) {
+            pushFieldPicker(item, "Field3Alt");
+        }
     }
 }
 
@@ -208,6 +266,12 @@ function fieldLabelText(fieldId as Lang.Number) as Lang.String {
         return WatchUi.loadResource(Rez.Strings.FieldTemperature) as Lang.String;
     } else if (fieldId == 9) {
         return WatchUi.loadResource(Rez.Strings.FieldWorldClock) as Lang.String;
+    } else if (fieldId == 10) {
+        return WatchUi.loadResource(Rez.Strings.FieldMoveBar) as Lang.String;
+    } else if (fieldId == 11) {
+        return WatchUi.loadResource(Rez.Strings.FieldSunrise) as Lang.String;
+    } else if (fieldId == 12) {
+        return WatchUi.loadResource(Rez.Strings.FieldSunset) as Lang.String;
     }
     // 0, and the fallback for any unrecognized value.
     return WatchUi.loadResource(Rez.Strings.FieldSteps) as Lang.String;
