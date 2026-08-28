@@ -7,10 +7,10 @@ using Toybox.Lang;
 // carousel), separate from the phone-based settings.xml/properties.xml
 // mechanism already in this project.
 //
-// SHARED FILE: this lives in garmin/shared-src/, not inside any single
+// SHARED FILE: this lives in garmin/garmin-shared-src/, not inside any single
 // project's own source/ folder, and is pulled into rossonero,
 // milan-personal, and santorini-sunset via each project's monkey.jungle
-// (`base.sourcePath = source;../shared-src`). It was byte-identical
+// (`base.sourcePath = source;../garmin-shared-src`). It was byte-identical
 // across all three projects already (only a per-project class-name
 // prefix differed, e.g. RossoneroSettingsMenu vs
 // SantoriniSunsetSettingsMenu - dropped here since one copy now compiles
