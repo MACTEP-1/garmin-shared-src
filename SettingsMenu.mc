@@ -67,7 +67,15 @@ const ALT_FIELD3_DEFAULT = 10;
 
 class SettingsMenu extends WatchUi.Menu2 {
     function initialize() {
-        Menu2.initialize({:title => "Customize"});
+        // "v" + APP_VERSION in the title (not a separate MenuItem row -
+        // simpler, no extra tap target/onSelect case needed) so the
+        // running build's version is visible every time this menu opens.
+        // APP_VERSION is a per-project global const (see each project's
+        // own <Project>App.mc) - resolves fine here since this shared
+        // file compiles as part of whichever project pulls it in via
+        // monkey.jungle's sourcePath, same as the Rez.Strings.* refs
+        // elsewhere in this file that also resolve per-project.
+        Menu2.initialize({:title => "Customize v" + APP_VERSION});
         addItem(new WatchUi.MenuItem("Left circle", currentFieldLabel("Field1", 0), :field1, {}));
         addItem(new WatchUi.MenuItem("Middle circle", currentFieldLabel("Field2", 1), :field2, {}));
         addItem(new WatchUi.MenuItem("Right circle", currentFieldLabel("Field3", 2), :field3, {}));
