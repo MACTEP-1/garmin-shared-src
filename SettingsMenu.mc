@@ -22,7 +22,8 @@ using Toybox.Lang;
 // defining the same string resource IDs this file references
 // (SettingClockStyle, ClockStyleDigital/Analog, FieldSteps through
 // FieldWorldClock, plus FieldMoveBar/FieldSunrise/FieldSunset added in the
-// "second hand / move bar / sunrise-sunset / step ring" round, etc.) - if a
+// "second hand / move bar / sunrise-sunset / step ring" round and
+// FieldMoonPhase added when Moon Phase was added as a 14th field, etc.) - if a
 // future setting adds a new string here,
 // it needs adding to all three projects' strings.xml, or that project's
 // build will fail with an undefined Rez.Strings reference (which is a
@@ -142,7 +143,7 @@ class SettingsDelegate extends WatchUi.Menu2InputDelegate {
     }
 }
 
-// Submenu listing all 13 selectable fields - same FIELD_* ids as View.mc's
+// Submenu listing all 14 selectable fields - same FIELD_* ids as View.mc's
 // constants and settings.xml's Field1/2/3 (and now Field1Alt/2Alt/3Alt)
 // list values. propKey is which property this circle writes to - moved to
 // a free function (was a SettingsDelegate method) so both SettingsDelegate
@@ -163,6 +164,7 @@ function pushFieldPicker(parentItem as WatchUi.MenuItem, propKey as Lang.String)
     menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldMoveBar, null, 10, {}));
     menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldSunrise, null, 11, {}));
     menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldSunset, null, 12, {}));
+    menu.addItem(new WatchUi.MenuItem(Rez.Strings.FieldMoonPhase, null, 13, {}));
     WatchUi.pushView(menu, new FieldPickerDelegate(parentItem, propKey), WatchUi.SLIDE_IMMEDIATE);
 }
 
@@ -272,6 +274,8 @@ function fieldLabelText(fieldId as Lang.Number) as Lang.String {
         return WatchUi.loadResource(Rez.Strings.FieldSunrise) as Lang.String;
     } else if (fieldId == 12) {
         return WatchUi.loadResource(Rez.Strings.FieldSunset) as Lang.String;
+    } else if (fieldId == 13) {
+        return WatchUi.loadResource(Rez.Strings.FieldMoonPhase) as Lang.String;
     }
     // 0, and the fallback for any unrecognized value.
     return WatchUi.loadResource(Rez.Strings.FieldSteps) as Lang.String;
