@@ -87,6 +87,18 @@ class SettingsMenu extends WatchUi.Menu2 {
         addItem(new WatchUi.MenuItem("Long-press fields", null, :altFields, {}));
         addItem(new WatchUi.MenuItem("World clock offset", currentWorldClockLabel(), :worldClock, {}));
         addItem(new WatchUi.MenuItem(Rez.Strings.SettingClockStyle, currentClockStyleLabel(), :clockStyle, {}));
+        // On/off, so ToggleMenuItem rather than a picker submenu like the
+        // items above - reads/writes the same "ShowStepRing" property the
+        // phone-side settings.xml toggle already uses (see View.mc's
+        // drawStepRing()), so whichever one you touch most recently wins,
+        // same as Field1/2/3 and WorldClockOffset already do.
+        addItem(new WatchUi.ToggleMenuItem(
+            Rez.Strings.SettingShowStepRing,
+            null,
+            :stepRing,
+            currentShowStepRing(),
+            {}
+        ));
     }
 }
 
@@ -109,6 +121,18 @@ class SettingsDelegate extends WatchUi.Menu2InputDelegate {
             pushWorldClockPicker(item);
         } else if (id.equals(:clockStyle)) {
             pushClockStylePicker(item);
+        } else if (id.equals(:stepRing)) {
+            // ToggleMenuItem has already flipped its own displayed state by
+            // the time onSelect fires (confirmed via Garmin's own API docs:
+            // "the state of the ToggleMenuItem changes to the state
+            // opposite of the state prior to the onSelect delegate
+            // callback invocation") - so isEnabled() here is the NEW value,
+            // just persist it. Cast needed since onSelect's item parameter
+            // is typed as the base WatchUi.MenuItem, which doesn't declare
+            // isEnabled().
+            var toggle = item as WatchUi.ToggleMenuItem;
+            Properties.setValue("ShowStepRing", toggle.isEnabled());
+            WatchUi.requestUpdate();
         }
     }
 
@@ -302,6 +326,15 @@ function utcLabel(offset as Lang.Number) as Lang.String {
         return "UTC" + offset.format("%d");
     }
     return "UTC+0";
+}
+
+// Same default (true) as the ShowStepRing property declaration in each
+// project's properties.xml - kept in sync manually since Monkey C can't
+// read a property's own declared default at runtime, only its current
+// value (null before ever explicitly set).
+function currentShowStepRing() as Lang.Boolean {
+    var show = Properties.getValue("ShowStepRing") as Lang.Boolean?;
+    return (show == null) ? true : show;
 }
 
 function currentClockStyleLabel() as Lang.String {
